@@ -1,0 +1,30 @@
+table {
+	border-collapse: collapse;
+	border-style: hidden;
+	margin: auto;
+}
+
+td {
+	height: 3em;
+	width: 3em;
+	text-align: center;
+	vertical-align: middle;
+	border: 2px solid black;
+	font-family: 'Arial', 'Veranda', 'Sans-serif';
+	font-size: 3em;
+}
+
+td:hover {
+	cursor: pointer;
+}
+
+.result {
+	font-family: 'Arial', 'Veranda', 'Sans-serif';
+	font-size: 2em;
+	text-align: center;
+	margin: 3em auto;
+}
+.result .button1 {
+	margin: 1em;
+	padding: 0.5em 1em;
+}
