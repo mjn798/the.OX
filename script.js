@@ -17,21 +17,22 @@ const winCombination = [
 // map all the table cells
 const cells = document.querySelectorAll(".cell");
 
-// inititalize the empty board
+// init the empty board
 var board = Array(9);
 
 // start the Game!
 window.onLoad = initGame();
 
-// initialize or reset the game
+// init or reset the game
 function initGame() {
 
+	// empty the result box
 	document.querySelector(".result").style.display = "none";
 
 	// start with a numbered board 0-8
 	board = Array.from(Array(9).keys());
 
-	// add click events for all spots
+	// add click events for all spots and empty the cells
 	cells.forEach(cell => cell.addEventListener('click', setClick, false));
 	cells.forEach(cell => cell.style.backgroundColor = "");
 	cells.forEach(cell => cell.innerText = "");
@@ -104,63 +105,86 @@ function gameOver(result) {
 
 }
 
-// identify the best spot for the AI
-function bestSpot() { return minmax(board, playerAI, 1).index; }
+// identify the best spot for the AI (alpha = go for max, beta = go for min)
+function bestSpot() { return alphabetapruning(board, playerAI, 0, -1000, +1000).index; }
 
 // identify empty spots on the board
 function emptySpots(board) { return board.filter(spot => typeof spot === 'number'); }
 
-// minmax algorithm
-function minmax(newBoard, player, depth) {
+// alpha beta pruning algorithm
+function alphabetapruning(newBoard, player, depth, alpha, beta) {
+
+	// depth = how many moves have been iterated
+	// alpha = best alternative for player going for the maximum (= AI)
+	// beta  = best alternative for player going for the minimum (= Me)
 
 	// include the depth in the score / health function to really go for the killer move - otherwise the first out of n options will be taken, which might take more moves in total
-	if (result = validateBoard(newBoard, playerMe)) {
-		// if AI has lost return -10 or 0 for a tie
-		return (typeof result.combination === 'number' ? { score: -10 + depth } : { score: 0 });
-	} else if (result = validateBoard(newBoard, playerAI)) {
-		// if AI has won return +10 or 0 for a tie (but ties are handled by the playerMe above anyway)
-		return (typeof result.combination === 'number' ? { score: +10 - depth } : { score: 0 });
-	}
+
+	// if AI has lost return -10 or 0 for a tie
+	if (result = validateBoard(newBoard, playerMe)) { return (typeof result.combination === 'number' ? { score: -10 + depth } : { score: 0 }); }
+	// if AI has won return +10 or 0 for a tie (but ties are handled by the playerMe above anyway)
+	else if (result = validateBoard(newBoard, playerAI)) { return (typeof result.combination === 'number' ? { score: +10 - depth } : { score: 0 }); }
 
 	// get all empty spots for the current board
 	var spots = emptySpots(newBoard);
 
-	// track all possible moves in Array
-	var moves = [];
+	// track the best move and init with the worst score depending on the player
+	var move = { score: ((player == playerAI) ? -1000 : 1000), index: -1 };
 
 	// simulate a full game for each empty spot
 	for (var i=0; i<spots.length; i++) {
 
-		// make a move
-		var move = {};
-
-		// field for the move is the empty spot in the loop
-		move.index = newBoard[spots[i]];
+		// remember the open spot for return value and reverting the board later
+		var spot = newBoard[spots[i]];
 
 		// mark the spot for the player
 		newBoard[spots[i]] = player;
 
 		// recursive call - finish the game and remember the score
 		if (player == playerAI) {
-			var result = minmax(newBoard, playerMe, depth + 1);
-			move.score = result.score;
+			// playerAI is the maximizing player (+10)
+			// get a new recursive move for playerMe (minimizing)
+			var result = alphabetapruning(newBoard, playerMe, depth + 1, alpha, beta);
+			// if the result is better, remember it
+			if (result.score > move.score) {
+				move.score = result.score;
+				move.index = spot;
+			}
+			// if the result is greater than beta, then return the move
+			// if the result is greater than beta, that means that the minimizing player will not take this path and the value in other branches can only increase the value, but not decrease it
+			if (result.score >= beta) {
+				// open the spot by reverting to its original number and return the move
+				newBoard[spots[i]] = spot;
+				return move;
+			}
+			// if the score is greater than alpha, update it - it's the best alternative found for maximizing the value
+			if (result.score > alpha) alpha = result.score;
 		} else {
-			var result = minmax(newBoard, playerAI, depth + 1);
-			move.score = result.score;
+			// playerMe is the minimizing player (-10)
+			// get a new recursive move for playerAI (maximizing)
+			var result = alphabetapruning(newBoard, playerAI, depth + 1, alpha, beta);
+			// if the result is better, remember it
+			if (result.score < move.score) {
+				move.score = result.score;
+				move.index = spot;
+			}
+			// if the result is less than alpha, then return the move
+			// if the result is less than alpha, that means that the maximizing player will not take this path and the value in other branches can only decrease the value, but not increase it
+			if (result.score <= alpha) {
+				// open the spot by reverting to its original number and return the move
+				newBoard[spots[i]] = spot;
+				return move;
+			}
+			// if the score is less than beta, update it - it's the best alternative found for minimizing the value
+			if (result.score < beta) beta = result.score;
 		}
 
 		// open the spot by reverting to its original number
-		newBoard[spots[i]] = move.index;
-
-		// remember the move (which spot, which score)
-		moves.push(move);
+		newBoard[spots[i]] = spot;
 
 	}
 
-	// sort the move by score - AI to win: highest score on top, Me to win: lowest score at the end
-	moves.sort(function(a,b) { return b.score - a.score; });
-
 	// return the best move (index (for bestSpot) and score (for recursive))
-	return (player == playerAI ? moves[0] : moves[moves.length-1]);
+	return move;
 
 }
